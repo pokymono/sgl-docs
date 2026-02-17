@@ -19,6 +19,12 @@
               "index",
               "docs/get-started/install"
             ]
+          },
+          {
+            "group": "Hardware Platforms",
+            "pages": [
+              "docs/hardware-platforms/xpu"
+            ]
           }
         ]
       },
