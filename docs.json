@@ -4,11 +4,15 @@
   "name": "SGLang Documentation",
   "colors": {
     "primary": "#d55816",
-    "light": "#faddcd",
-    "dark": "#121212"
+    "light": "#d55816",
+    "dark": "#d55816"
   },
   "background": {
-    "decoration": "gradient"
+    "decoration": "grid",
+    "color": {
+      "dark": "#1d1511",
+      "light": "#fffcfb"
+    }
   },
   "fonts": {
     "heading": {
