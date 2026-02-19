@@ -69,7 +69,7 @@
             "group": "Text generation",
             "pages": [
               "docs/supported-models/large-language-models",
-              "docs/supported-models/multimodal-language-models",
+              "docs/supported-models/vision-language-models",
               "docs/supported-models/diffusion-language-models"
             ]
           },
