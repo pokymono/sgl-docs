@@ -36,55 +36,10 @@
         "groups": [
           {
             "group": "Get Started",
-            "pages": [ "index",
+            "pages": [
+              "index",
               "docs/get-started/quickstart",
-              "docs/get-started/installation"]
-          },
-          {
-            "group": "Hardware Platforms",
-            "pages": [
-              {
-                "group": "Ascend NPUs",
-                "pages": [
-                  "docs/hardware-platforms/ascend-npus/Support Features on Ascend NPU",
-                  "docs/hardware-platforms/ascend-npus/Support Models on Ascend NPU",
-                  "docs/hardware-platforms/ascend-npus/DeepSeek Examples",
-                  "docs/hardware-platforms/ascend-npus/Qwen3 Examples",
-                  "docs/hardware-platforms/ascend-npus/MindSpore Models",
-                  "docs/hardware-platforms/ascend-npus/Contribution Guide",
-                  "docs/hardware-platforms/ascend-npus/Best Practice on Ascend NPU",
-                  "docs/hardware-platforms/ascend-npus/Qwen3.5",
-                  "docs/hardware-platforms/ascend-npus/GLM-5"
-                ]
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "tab": "Supported Models",
-        "pages": [
-          "docs/supported-models",
-          {
-            "group": "Text generation",
-            "pages": [
-              "docs/supported-models/large-language-models",
-              "docs/supported-models/vision-language-models",
-              "docs/supported-models/diffusion-language-models"
-            ]
-          },
-          {
-            "group": "Retrieval and ranking",
-            "pages": [
-              "docs/supported-models/embedding-models",
-              "docs/supported-models/rerank-models",
-              "docs/supported-models/classification-models"
-            ]
-          },
-          {
-            "group": "Specialized models",
-            "pages": [
-              "docs/supported-models/reward-models"
+              "docs/get-started/installation"
             ]
           },
           {
@@ -111,7 +66,34 @@
           }
         ]
       },
-
+      {
+        "tab": "Supported Models",
+        "pages": [
+          "docs/supported-models",
+          {
+            "group": "Text generation",
+            "pages": [
+              "docs/supported-models/large-language-models",
+              "docs/supported-models/vision-language-models",
+              "docs/supported-models/diffusion-language-models"
+            ]
+          },
+          {
+            "group": "Retrieval and ranking",
+            "pages": [
+              "docs/supported-models/embedding-models",
+              "docs/supported-models/rerank-models",
+              "docs/supported-models/classification-models"
+            ]
+          },
+            {
+              "group": "Specialized models",
+              "pages": [
+                "docs/supported-models/reward-models"
+              ]
+            }
+          ]
+      },
       {
         "tab": "Cookbook",
         "pages": [
