@@ -10,7 +10,7 @@
   "background": {
     "decoration": "grid",
     "color": {
-      "dark": "#1d1511",
+      "dark": "#1d1d1d",
       "light": "#fffcfb"
     }
   },
@@ -46,13 +46,28 @@
       },
       {
         "tab": "Supported Models",
-        "groups": [
+        "pages": [
+          "docs/supported-models",
           {
-            "group": "Models",
+            "group": "Text generation",
             "pages": [
-              "index",
-              "docs/get-started/quickstart",
-              "docs/get-started/installation"
+              "docs/supported-models/large-language-models",
+              "docs/supported-models/multimodal-language-models",
+              "docs/supported-models/diffusion-language-models"
+            ]
+          },
+          {
+            "group": "Retrieval and ranking",
+            "pages": [
+              "docs/supported-models/embedding-models",
+              "docs/supported-models/rerank-models",
+              "docs/supported-models/classification-models"
+            ]
+          },
+          {
+            "group": "Specialized models",
+            "pages": [
+              "docs/supported-models/reward-models"
             ]
           }
         ]
