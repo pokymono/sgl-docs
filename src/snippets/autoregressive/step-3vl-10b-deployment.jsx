@@ -1,39 +1,33 @@
-export const DeepSeekR1BasicDeployment = () => {
+export const Step3VL10BDeployment = () => {
   // Config options
   const options = {
     hardware: {
       name: 'hardware',
       title: 'Hardware Platform',
       items: [
+        { id: 'b200', label: 'B200', default: true },
         { id: 'h100', label: 'H100', default: false },
         { id: 'h200', label: 'H200', default: false },
-        { id: 'b200', label: 'B200', default: true },
-        { id: 'mi300x', label: 'MI300X', default: false },
-        { id: 'mi325x', label: 'MI325X', default: false },
-        { id: 'mi355x', label: 'MI355X', default: false }
+        { id: 'a100', label: 'A100', default: false }
+      ]
+    },
+    modelsize: {
+      name: 'modelsize',
+      title: 'Model Size',
+      items: [
+        { id: '10b', label: '10B', subtitle: 'Dense', default: true }
       ]
     },
     quantization: {
       name: 'quantization',
       title: 'Quantization',
       items: [
-        { id: 'fp8', label: 'FP8', default: true },
-        { id: 'fp4', label: 'FP4', default: false }
+        { id: 'bf16', label: 'BF16', default: true },
+        { id: 'fp8', label: 'FP8', default: false }
       ]
     },
-    strategy: {
-      name: 'strategy',
-      title: 'Deployment Strategy',
-      type: 'checkbox',
-      items: [
-        { id: 'tp', label: 'TP', subtitle: 'Tensor Parallel', default: true, required: true },
-        { id: 'dp', label: 'DP', subtitle: 'Data Parallel', default: false },
-        { id: 'ep', label: 'EP', subtitle: 'Expert Parallel', default: false },
-        { id: 'mtp', label: 'MTP', subtitle: 'Multi-token Prediction', default: false }
-      ]
-    },
-    thinking: {
-      name: 'thinking',
+    reasoning: {
+      name: 'reasoning',
       title: 'Reasoning Parser',
       items: [
         { id: 'disabled', label: 'Disabled', default: true },
@@ -47,6 +41,16 @@ export const DeepSeekR1BasicDeployment = () => {
         { id: 'disabled', label: 'Disabled', default: true },
         { id: 'enabled', label: 'Enabled', default: false }
       ]
+    }
+  };
+
+  // modelConfigs
+  const modelConfigs = {
+    '10b': {
+      b200: { tp: 1 },
+      h100: { tp: 1 },
+      h200: { tp: 1 },
+      a100: { tp: 1 }
     }
   };
 
@@ -67,12 +71,11 @@ export const DeepSeekR1BasicDeployment = () => {
   const [values, setValues] = useState(getInitialState);
   const [isDark, setIsDark] = useState(false);
 
-  // Detect dark mode - prioritize page theme over system preference
+  // Detect dark mode
   useEffect(() => {
     const checkDarkMode = () => {
-      // Check Mintlify's theme class on html element
       const html = document.documentElement;
-      const isDarkMode = html.classList.contains('dark') || 
+      const isDarkMode = html.classList.contains('dark') ||
                          html.getAttribute('data-theme') === 'dark' ||
                          html.style.colorScheme === 'dark';
       setIsDark(isDarkMode);
@@ -100,55 +103,34 @@ export const DeepSeekR1BasicDeployment = () => {
 
   // Generate command
   const generateCommand = () => {
-    const { hardware, quantization, strategy, thinking, toolcall } = values;
-    const strategyArray = Array.isArray(strategy) ? strategy : [];
+    const { hardware, modelsize, quantization, reasoning, toolcall } = values;
 
-    // Validation checks
-    if ((hardware === 'h100' || hardware === 'mi300x' || hardware === 'mi325x' || hardware === 'mi355x') && quantization === 'fp4') {
-      return '# Error: H100, MI300X, MI325X and MI355X only support FP8 quantization\n# Please select FP8 quantization or use B200 hardware';
+    const config = modelConfigs[modelsize];
+    if (!config) return `# Error: Unknown model size: ${modelsize}`;
+
+    const hwConfig = config[hardware];
+    if (!hwConfig) return `# Error: Unknown hardware platform: ${hardware}`;
+
+    const quantSuffix = quantization === 'fp8' ? '-FP8' : '';
+    const modelName = `stepfun-ai/Step3-VL-10B${quantSuffix}`;
+
+    let cmd = 'python -m sglang.launch_server \\\n';
+    cmd += `  --model ${modelName}`;
+
+    if (hwConfig.tp > 1) {
+      cmd += ` \\\n  --tp ${hwConfig.tp}`;
     }
 
-    // Model path based on quantization
-    let modelPath = '';
-    if (quantization === 'fp8') {
-      modelPath = 'deepseek-ai/DeepSeek-R1-0528';
-    } else if (quantization === 'fp4') {
-      modelPath = 'nvidia/DeepSeek-R1-0528-FP4-v2';
+    cmd += ` \\\n  --host 0.0.0.0 \\\n  --port 30000`;
+    cmd += ` \\\n  --trust-remote-code`;
+
+    if (reasoning === 'enabled') {
+      cmd += ` \\\n  --reasoning-parser deepseek-r1`;
     }
 
-    let cmd = 'python3 -m sglang.launch_server \\\n';
-    cmd += `  --model-path ${modelPath}`;
-
-    // TP strategy
-    if (strategyArray.includes('tp')) {
-      cmd += ` \\\n  --tp 8`;
+    if (toolcall === 'enabled') {
+      cmd += ` \\\n  --tool-call-parser hermes`;
     }
-
-    // DP strategy
-    if (strategyArray.includes('dp')) {
-      cmd += ` \\\n  --dp 8 \\\n  --enable-dp-attention`;
-    }
-
-    // EP strategy
-    if (strategyArray.includes('ep')) {
-      cmd += ` \\\n  --ep 8`;
-    }
-
-    // MTP strategy
-    if (strategyArray.includes('mtp')) {
-      cmd = 'SGLANG_ENABLE_SPEC_V2=1 ' + cmd;
-      cmd += ` \\\n  --speculative-algorithm EAGLE \\\n  --speculative-num-steps 3 \\\n  --speculative-eagle-topk 1 \\\n  --speculative-num-draft-tokens 4`;
-    }
-
-    cmd += ` \\\n  --enable-symm-mem # Optional: improves performance, but may be unstable`;
-
-    if (hardware === 'b200') {
-      cmd += ` \\\n  --kv-cache-dtype fp8_e4m3 # Optional: enables fp8 kv cache and fp8 attention kernels to improve performance`;
-    }
-
-    // Add thinking parser and tool call parser if enabled
-    if (thinking === 'enabled') cmd += ' \\\n  --reasoning-parser deepseek-r1';
-    if (toolcall === 'enabled') cmd += ' \\\n  --tool-call-parser deepseekv3 \\\n  --chat-template examples/chat_template/tool_chat_template_deepseekr1.jinja';
 
     return cmd;
   };
@@ -173,10 +155,10 @@ export const DeepSeekR1BasicDeployment = () => {
             {option.type === 'checkbox' ? (
               option.items.map(item => {
                 const isChecked = (values[option.name] || []).includes(item.id);
-                const isDisabled = item.required;
+                const isItemDisabled = item.required;
                 return (
-                  <label key={item.id} style={{ ...labelBaseStyle, ...(isChecked ? checkedStyle : {}), ...(isDisabled ? disabledStyle : {}) }}>
-                    <input type="checkbox" checked={isChecked} disabled={isDisabled} onChange={(e) => handleCheckboxChange(option.name, item.id, e.target.checked)} style={{ display: 'none' }} />
+                  <label key={item.id} style={{ ...labelBaseStyle, ...(isChecked ? checkedStyle : {}), ...(isItemDisabled ? disabledStyle : {}) }}>
+                    <input type="checkbox" checked={isChecked} disabled={isItemDisabled} onChange={(e) => handleCheckboxChange(option.name, item.id, e.target.checked)} style={{ display: 'none' }} />
                     {item.label}
                     {item.subtitle && <small style={{ ...subtitleStyle, color: isChecked ? 'rgba(255,255,255,0.85)' : 'inherit' }}>{item.subtitle}</small>}
                   </label>
@@ -204,4 +186,3 @@ export const DeepSeekR1BasicDeployment = () => {
     </div>
   );
 };
-

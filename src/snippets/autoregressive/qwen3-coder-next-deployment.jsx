@@ -1,13 +1,13 @@
-export const GLM45VDeployment = () => {
+export const Qwen3CoderNextDeployment = () => {
   // Config options
   const options = {
     hardware: {
       name: 'hardware',
       title: 'Hardware Platform',
       items: [
-        { id: 'b200', label: 'B200', default: true },
+        { id: 'h200', label: 'H200', default: true },
         { id: 'h100', label: 'H100', default: false },
-        { id: 'h200', label: 'H200', default: false },
+        { id: 'b200', label: 'B200', default: false },
         { id: 'mi300x', label: 'MI300X', default: false },
         { id: 'mi325x', label: 'MI325X', default: false },
         { id: 'mi355x', label: 'MI355X', default: false }
@@ -21,14 +21,6 @@ export const GLM45VDeployment = () => {
         { id: 'fp8', label: 'FP8', default: false }
       ]
     },
-    reasoning: {
-      name: 'reasoning',
-      title: 'Reasoning Parser',
-      items: [
-        { id: 'enabled', label: 'Enabled', default: true },
-        { id: 'disabled', label: 'Disabled', default: false }
-      ]
-    },
     toolcall: {
       name: 'toolcall',
       title: 'Tool Call Parser',
@@ -37,6 +29,16 @@ export const GLM45VDeployment = () => {
         { id: 'disabled', label: 'Disabled', default: false }
       ]
     }
+  };
+
+  // Model configurations: tp varies by hardware + quantization
+  const modelConfigs = {
+    h100: { bf16: { tp: 4 }, fp8: { tp: 2 } },
+    h200: { bf16: { tp: 2 }, fp8: { tp: 1 } },
+    b200: { bf16: { tp: 2 }, fp8: { tp: 1 } },
+    mi300x: { bf16: { tp: 2 }, fp8: { tp: 1 } },
+    mi325x: { bf16: { tp: 2 }, fp8: { tp: 1 } },
+    mi355x: { bf16: { tp: 2 }, fp8: { tp: 1 } }
   };
 
   // Initialize state
@@ -56,7 +58,7 @@ export const GLM45VDeployment = () => {
   useEffect(() => {
     const checkDarkMode = () => {
       const html = document.documentElement;
-      const isDarkMode = html.classList.contains('dark') || 
+      const isDarkMode = html.classList.contains('dark') ||
                          html.getAttribute('data-theme') === 'dark' ||
                          html.style.colorScheme === 'dark';
       setIsDark(isDarkMode);
@@ -73,50 +75,31 @@ export const GLM45VDeployment = () => {
 
   // Generate command
   const generateCommand = () => {
-    const { hardware, quantization, reasoning, toolcall } = values;
+    const { hardware, quantization, toolcall } = values;
 
-    // Model configuration
-    const config = {
-      baseName: 'GLM-4.5V',
-      b200: { tp: 4 },
-      h100: { tp: 4 },
-      h200: { tp: 4 },
-      mi300x: { tp: 4 },
-      mi355x: { tp: 4 }
-    };
-
-    const hwConfig = config[hardware];
+    const hwConfig = modelConfigs[hardware];
     if (!hwConfig) {
       return `# Error: Unknown hardware platform: ${hardware}`;
     }
 
+    const quantConfig = hwConfig[quantization];
     const quantSuffix = quantization === 'fp8' ? '-FP8' : '';
-    const modelName = `zai-org/${config.baseName}${quantSuffix}`;
+    const modelName = `Qwen/Qwen3-Coder-Next${quantSuffix}`;
 
-    // Check if AMD hardware
-    const isAMD = ['mi300x', 'mi325x', 'mi355x'].includes(hardware);
+    let cmd = 'python -m sglang.launch_server \\\n';
+    cmd += `  --model ${modelName}`;
 
-    let cmd = '';
-    if (isAMD) {
-      cmd = 'SGLANG_USE_AITER=0 python3 -m sglang.launch_server \\\n';
-      cmd += `  --model-path ${modelName}`;
-      cmd += ` \\\n  --tp-size ${hwConfig.tp}`;
-    } else {
-      cmd = 'python -m sglang.launch_server \\\n';
-      cmd += `  --model ${modelName}`;
-      if (hwConfig.tp > 1) {
-        cmd += ` \\\n  --tp ${hwConfig.tp}`;
-      }
+    if (quantConfig.tp > 1) {
+      cmd += ` \\\n  --tp ${quantConfig.tp}`;
     }
 
-    // Add reasoning parser
-    if (reasoning === 'enabled') {
-      cmd += ' \\\n  --reasoning-parser glm45';
-    }
-
-    // Add tool call parser
     if (toolcall === 'enabled') {
-      cmd += ' \\\n  --tool-call-parser glm45';
+      cmd += ' \\\n  --tool-call-parser qwen3_coder';
+    }
+
+    // AMD GPUs require triton attention backend
+    if (hardware === 'mi300x' || hardware === 'mi325x' || hardware === 'mi355x') {
+      cmd += ` \\\n  --attention-backend triton`;
     }
 
     return cmd;
@@ -139,30 +122,17 @@ export const GLM45VDeployment = () => {
         <div key={key} style={cardStyle}>
           <div style={titleStyle}>{option.title}</div>
           <div style={itemsStyle}>
-            {option.type === 'checkbox' ? (
-              option.items.map(item => {
-                const isChecked = (values[option.name] || []).includes(item.id);
-                const isDisabled = item.required;
-                return (
-                  <label key={item.id} style={{ ...labelBaseStyle, ...(isChecked ? checkedStyle : {}), ...(isDisabled ? disabledStyle : {}) }}>
-                    <input type="checkbox" checked={isChecked} disabled={isDisabled} onChange={(e) => handleCheckboxChange(option.name, item.id, e.target.checked)} style={{ display: 'none' }} />
-                    {item.label}
-                    {item.subtitle && <small style={{ ...subtitleStyle, color: isChecked ? 'rgba(255,255,255,0.85)' : 'inherit' }}>{item.subtitle}</small>}
-                  </label>
-                );
-              })
-            ) : (
-              option.items.map(item => {
-                const isChecked = values[option.name] === item.id;
-                return (
-                  <label key={item.id} style={{ ...labelBaseStyle, ...(isChecked ? checkedStyle : {}) }}>
-                    <input type="radio" name={option.name} value={item.id} checked={isChecked} onChange={() => handleRadioChange(option.name, item.id)} style={{ display: 'none' }} />
-                    {item.label}
-                    {item.subtitle && <small style={{ ...subtitleStyle, color: isChecked ? 'rgba(255,255,255,0.85)' : 'inherit' }}>{item.subtitle}</small>}
-                  </label>
-                );
-              })
-            )}
+            {option.items.map(item => {
+              const isChecked = values[option.name] === item.id;
+              const isDisabled = item.disabled;
+              return (
+                <label key={item.id} style={{ ...labelBaseStyle, ...(isChecked ? checkedStyle : {}), ...(isDisabled ? disabledStyle : {}) }}>
+                  <input type="radio" name={option.name} value={item.id} checked={isChecked} disabled={isDisabled} onChange={() => handleRadioChange(option.name, item.id)} style={{ display: 'none' }} />
+                  {item.label}
+                  {item.subtitle && <small style={{ ...subtitleStyle, color: isChecked ? 'rgba(255,255,255,0.85)' : 'inherit' }}>{item.subtitle}</small>}
+                </label>
+              );
+            })}
           </div>
         </div>
       ))}
@@ -173,4 +143,3 @@ export const GLM45VDeployment = () => {
     </div>
   );
 };
-

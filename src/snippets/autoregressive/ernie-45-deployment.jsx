@@ -1,24 +1,21 @@
-export const DeepSeekR1BasicDeployment = () => {
+export const Ernie45Deployment = () => {
   // Config options
   const options = {
+    modelsize: {
+      name: 'modelsize',
+      title: 'Model Size',
+      items: [
+        { id: '21b', label: '21B', subtitle: 'A3B', default: true },
+        { id: '300b', label: '300B', subtitle: 'A47B', default: false }
+      ]
+    },
     hardware: {
       name: 'hardware',
       title: 'Hardware Platform',
       items: [
-        { id: 'h100', label: 'H100', default: false },
-        { id: 'h200', label: 'H200', default: false },
-        { id: 'b200', label: 'B200', default: true },
-        { id: 'mi300x', label: 'MI300X', default: false },
+        { id: 'mi300x', label: 'MI300X', default: true },
         { id: 'mi325x', label: 'MI325X', default: false },
         { id: 'mi355x', label: 'MI355X', default: false }
-      ]
-    },
-    quantization: {
-      name: 'quantization',
-      title: 'Quantization',
-      items: [
-        { id: 'fp8', label: 'FP8', default: true },
-        { id: 'fp4', label: 'FP4', default: false }
       ]
     },
     strategy: {
@@ -28,24 +25,7 @@ export const DeepSeekR1BasicDeployment = () => {
       items: [
         { id: 'tp', label: 'TP', subtitle: 'Tensor Parallel', default: true, required: true },
         { id: 'dp', label: 'DP', subtitle: 'Data Parallel', default: false },
-        { id: 'ep', label: 'EP', subtitle: 'Expert Parallel', default: false },
-        { id: 'mtp', label: 'MTP', subtitle: 'Multi-token Prediction', default: false }
-      ]
-    },
-    thinking: {
-      name: 'thinking',
-      title: 'Reasoning Parser',
-      items: [
-        { id: 'disabled', label: 'Disabled', default: true },
-        { id: 'enabled', label: 'Enabled', default: false }
-      ]
-    },
-    toolcall: {
-      name: 'toolcall',
-      title: 'Tool Call Parser',
-      items: [
-        { id: 'disabled', label: 'Disabled', default: true },
-        { id: 'enabled', label: 'Enabled', default: false }
+        { id: 'ep', label: 'EP', subtitle: 'Expert Parallel', default: false }
       ]
     }
   };
@@ -67,12 +47,11 @@ export const DeepSeekR1BasicDeployment = () => {
   const [values, setValues] = useState(getInitialState);
   const [isDark, setIsDark] = useState(false);
 
-  // Detect dark mode - prioritize page theme over system preference
+  // Detect dark mode
   useEffect(() => {
     const checkDarkMode = () => {
-      // Check Mintlify's theme class on html element
       const html = document.documentElement;
-      const isDarkMode = html.classList.contains('dark') || 
+      const isDarkMode = html.classList.contains('dark') ||
                          html.getAttribute('data-theme') === 'dark' ||
                          html.style.colorScheme === 'dark';
       setIsDark(isDarkMode);
@@ -84,7 +63,14 @@ export const DeepSeekR1BasicDeployment = () => {
   }, []);
 
   const handleRadioChange = (optionName, value) => {
-    setValues(prev => ({ ...prev, [optionName]: value }));
+    setValues(prev => {
+      const newValues = { ...prev, [optionName]: value };
+      // When switching to 21b, remove dp and ep from strategy
+      if (optionName === 'modelsize' && value === '21b') {
+        newValues.strategy = (prev.strategy || []).filter(s => s === 'tp');
+      }
+      return newValues;
+    });
   };
 
   const handleCheckboxChange = (optionName, itemId, isChecked) => {
@@ -100,55 +86,34 @@ export const DeepSeekR1BasicDeployment = () => {
 
   // Generate command
   const generateCommand = () => {
-    const { hardware, quantization, strategy, thinking, toolcall } = values;
+    const { modelsize, strategy } = values;
     const strategyArray = Array.isArray(strategy) ? strategy : [];
 
-    // Validation checks
-    if ((hardware === 'h100' || hardware === 'mi300x' || hardware === 'mi325x' || hardware === 'mi355x') && quantization === 'fp4') {
-      return '# Error: H100, MI300X, MI325X and MI355X only support FP8 quantization\n# Please select FP8 quantization or use B200 hardware';
+    let modelPath;
+    if (modelsize === '21b') {
+      modelPath = 'baidu/ERNIE-4.5-21B-A3B-PT';
+    } else {
+      modelPath = 'baidu/ERNIE-4.5-300B-A47B-PT';
     }
 
-    // Model path based on quantization
-    let modelPath = '';
-    if (quantization === 'fp8') {
-      modelPath = 'deepseek-ai/DeepSeek-R1-0528';
-    } else if (quantization === 'fp4') {
-      modelPath = 'nvidia/DeepSeek-R1-0528-FP4-v2';
-    }
+    const tpValue = modelsize === '300b' ? 8 : 1;
+    const dpValue = 8;
+    const epValue = 8;
 
     let cmd = 'python3 -m sglang.launch_server \\\n';
     cmd += `  --model-path ${modelPath}`;
 
-    // TP strategy
     if (strategyArray.includes('tp')) {
-      cmd += ` \\\n  --tp 8`;
+      cmd += ` \\\n  --tp ${tpValue}`;
     }
 
-    // DP strategy
-    if (strategyArray.includes('dp')) {
-      cmd += ` \\\n  --dp 8 \\\n  --enable-dp-attention`;
+    if (strategyArray.includes('dp') && modelsize === '300b') {
+      cmd += ` \\\n  --dp ${dpValue} \\\n  --enable-dp-attention`;
     }
 
-    // EP strategy
-    if (strategyArray.includes('ep')) {
-      cmd += ` \\\n  --ep 8`;
+    if (strategyArray.includes('ep') && modelsize === '300b') {
+      cmd += ` \\\n  --ep ${epValue}`;
     }
-
-    // MTP strategy
-    if (strategyArray.includes('mtp')) {
-      cmd = 'SGLANG_ENABLE_SPEC_V2=1 ' + cmd;
-      cmd += ` \\\n  --speculative-algorithm EAGLE \\\n  --speculative-num-steps 3 \\\n  --speculative-eagle-topk 1 \\\n  --speculative-num-draft-tokens 4`;
-    }
-
-    cmd += ` \\\n  --enable-symm-mem # Optional: improves performance, but may be unstable`;
-
-    if (hardware === 'b200') {
-      cmd += ` \\\n  --kv-cache-dtype fp8_e4m3 # Optional: enables fp8 kv cache and fp8 attention kernels to improve performance`;
-    }
-
-    // Add thinking parser and tool call parser if enabled
-    if (thinking === 'enabled') cmd += ' \\\n  --reasoning-parser deepseek-r1';
-    if (toolcall === 'enabled') cmd += ' \\\n  --tool-call-parser deepseekv3 \\\n  --chat-template examples/chat_template/tool_chat_template_deepseekr1.jinja';
 
     return cmd;
   };
@@ -164,6 +129,8 @@ export const DeepSeekR1BasicDeployment = () => {
   const subtitleStyle = { display: 'block', fontSize: '9px', marginTop: '1px', lineHeight: '1.1', opacity: 0.7 };
   const commandDisplayStyle = { flex: 1, padding: '12px 16px', background: isDark ? '#111827' : '#f5f5f5', borderRadius: '6px', fontFamily: "'Menlo', 'Monaco', 'Courier New', monospace", fontSize: '12px', lineHeight: '1.5', color: isDark ? '#e5e7eb' : '#374151', whiteSpace: 'pre-wrap', overflowX: 'auto', margin: 0, border: `1px solid ${isDark ? '#374151' : '#e5e7eb'}` };
 
+  const is21b = values.modelsize === '21b';
+
   return (
     <div style={containerStyle} className="not-prose">
       {Object.entries(options).map(([key, option]) => (
@@ -173,10 +140,10 @@ export const DeepSeekR1BasicDeployment = () => {
             {option.type === 'checkbox' ? (
               option.items.map(item => {
                 const isChecked = (values[option.name] || []).includes(item.id);
-                const isDisabled = item.required;
+                const isItemDisabled = item.required || (is21b && (item.id === 'dp' || item.id === 'ep'));
                 return (
-                  <label key={item.id} style={{ ...labelBaseStyle, ...(isChecked ? checkedStyle : {}), ...(isDisabled ? disabledStyle : {}) }}>
-                    <input type="checkbox" checked={isChecked} disabled={isDisabled} onChange={(e) => handleCheckboxChange(option.name, item.id, e.target.checked)} style={{ display: 'none' }} />
+                  <label key={item.id} style={{ ...labelBaseStyle, ...(isChecked ? checkedStyle : {}), ...(isItemDisabled ? disabledStyle : {}) }}>
+                    <input type="checkbox" checked={isChecked} disabled={isItemDisabled} onChange={(e) => handleCheckboxChange(option.name, item.id, e.target.checked)} style={{ display: 'none' }} />
                     {item.label}
                     {item.subtitle && <small style={{ ...subtitleStyle, color: isChecked ? 'rgba(255,255,255,0.85)' : 'inherit' }}>{item.subtitle}</small>}
                   </label>
@@ -204,4 +171,3 @@ export const DeepSeekR1BasicDeployment = () => {
     </div>
   );
 };
-

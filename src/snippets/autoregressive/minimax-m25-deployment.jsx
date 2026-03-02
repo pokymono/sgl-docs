@@ -1,40 +1,27 @@
-export const DeepSeekR1BasicDeployment = () => {
+export const MiniMaxM25Deployment = () => {
   // Config options
   const options = {
     hardware: {
       name: 'hardware',
       title: 'Hardware Platform',
       items: [
-        { id: 'h100', label: 'H100', default: false },
-        { id: 'h200', label: 'H200', default: false },
-        { id: 'b200', label: 'B200', default: true },
-        { id: 'mi300x', label: 'MI300X', default: false },
-        { id: 'mi325x', label: 'MI325X', default: false },
-        { id: 'mi355x', label: 'MI355X', default: false }
+        { id: 'h200', label: 'H200', default: true },
+        { id: 'b200', label: 'B200', default: false },
+        { id: 'a100', label: 'A100', default: false },
+        { id: 'h100', label: 'H100', default: false }
       ]
     },
-    quantization: {
-      name: 'quantization',
-      title: 'Quantization',
+    gpuCount: {
+      name: 'gpuCount',
+      title: 'GPU Count',
       items: [
-        { id: 'fp8', label: 'FP8', default: true },
-        { id: 'fp4', label: 'FP4', default: false }
-      ]
-    },
-    strategy: {
-      name: 'strategy',
-      title: 'Deployment Strategy',
-      type: 'checkbox',
-      items: [
-        { id: 'tp', label: 'TP', subtitle: 'Tensor Parallel', default: true, required: true },
-        { id: 'dp', label: 'DP', subtitle: 'Data Parallel', default: false },
-        { id: 'ep', label: 'EP', subtitle: 'Expert Parallel', default: false },
-        { id: 'mtp', label: 'MTP', subtitle: 'Multi-token Prediction', default: false }
+        { id: '4gpu', label: '4', default: true },
+        { id: '8gpu', label: '8', default: false }
       ]
     },
     thinking: {
       name: 'thinking',
-      title: 'Reasoning Parser',
+      title: 'Thinking Capabilities',
       items: [
         { id: 'disabled', label: 'Disabled', default: true },
         { id: 'enabled', label: 'Enabled', default: false }
@@ -70,9 +57,8 @@ export const DeepSeekR1BasicDeployment = () => {
   // Detect dark mode - prioritize page theme over system preference
   useEffect(() => {
     const checkDarkMode = () => {
-      // Check Mintlify's theme class on html element
       const html = document.documentElement;
-      const isDarkMode = html.classList.contains('dark') || 
+      const isDarkMode = html.classList.contains('dark') ||
                          html.getAttribute('data-theme') === 'dark' ||
                          html.style.colorScheme === 'dark';
       setIsDark(isDarkMode);
@@ -100,55 +86,31 @@ export const DeepSeekR1BasicDeployment = () => {
 
   // Generate command
   const generateCommand = () => {
-    const { hardware, quantization, strategy, thinking, toolcall } = values;
-    const strategyArray = Array.isArray(strategy) ? strategy : [];
+    const { gpuCount, thinking, toolcall } = values;
 
-    // Validation checks
-    if ((hardware === 'h100' || hardware === 'mi300x' || hardware === 'mi325x' || hardware === 'mi355x') && quantization === 'fp4') {
-      return '# Error: H100, MI300X, MI325X and MI355X only support FP8 quantization\n# Please select FP8 quantization or use B200 hardware';
-    }
+    const modelName = 'MiniMaxAI/MiniMax-M2.5';
+    const is8gpu = gpuCount === '8gpu';
 
-    // Model path based on quantization
-    let modelPath = '';
-    if (quantization === 'fp8') {
-      modelPath = 'deepseek-ai/DeepSeek-R1-0528';
-    } else if (quantization === 'fp4') {
-      modelPath = 'nvidia/DeepSeek-R1-0528-FP4-v2';
-    }
+    let cmd = 'python -m sglang.launch_server \\\n';
+    cmd += `  --model-path ${modelName}`;
 
-    let cmd = 'python3 -m sglang.launch_server \\\n';
-    cmd += `  --model-path ${modelPath}`;
-
-    // TP strategy
-    if (strategyArray.includes('tp')) {
+    if (is8gpu) {
       cmd += ` \\\n  --tp 8`;
-    }
-
-    // DP strategy
-    if (strategyArray.includes('dp')) {
-      cmd += ` \\\n  --dp 8 \\\n  --enable-dp-attention`;
-    }
-
-    // EP strategy
-    if (strategyArray.includes('ep')) {
       cmd += ` \\\n  --ep 8`;
+    } else {
+      cmd += ` \\\n  --tp 4`;
     }
 
-    // MTP strategy
-    if (strategyArray.includes('mtp')) {
-      cmd = 'SGLANG_ENABLE_SPEC_V2=1 ' + cmd;
-      cmd += ` \\\n  --speculative-algorithm EAGLE \\\n  --speculative-num-steps 3 \\\n  --speculative-eagle-topk 1 \\\n  --speculative-num-draft-tokens 4`;
+    if (toolcall === 'enabled') {
+      cmd += ` \\\n  --tool-call-parser minimax-m2`;
     }
 
-    cmd += ` \\\n  --enable-symm-mem # Optional: improves performance, but may be unstable`;
-
-    if (hardware === 'b200') {
-      cmd += ` \\\n  --kv-cache-dtype fp8_e4m3 # Optional: enables fp8 kv cache and fp8 attention kernels to improve performance`;
+    if (thinking === 'enabled') {
+      cmd += ` \\\n  --reasoning-parser minimax-append-think`;
     }
 
-    // Add thinking parser and tool call parser if enabled
-    if (thinking === 'enabled') cmd += ' \\\n  --reasoning-parser deepseek-r1';
-    if (toolcall === 'enabled') cmd += ' \\\n  --tool-call-parser deepseekv3 \\\n  --chat-template examples/chat_template/tool_chat_template_deepseekr1.jinja';
+    cmd += ` \\\n  --trust-remote-code`;
+    cmd += ` \\\n  --mem-fraction-static 0.85`;
 
     return cmd;
   };
@@ -204,4 +166,3 @@ export const DeepSeekR1BasicDeployment = () => {
     </div>
   );
 };
-
