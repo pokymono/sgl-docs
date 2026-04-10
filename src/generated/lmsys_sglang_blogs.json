@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-10T00:14:52.842846Z",
+  "generatedAt": "2026-04-10T12:13:31.803951Z",
   "sourceRepo": "https://github.com/lm-sys/lm-sys.github.io/tree/main/blog",
   "keywords": [
     "sglang",
@@ -10,9 +10,16 @@
     "sglang diffusion"
   ],
   "maxCards": 6,
-  "totalBlogFilesScanned": 80,
+  "totalBlogFilesScanned": 81,
   "cardsPublished": 6,
   "posts": [
+    {
+      "slug": "2026-04-10-sglang-hisparse",
+      "title": "HiSparse: Turbocharging Sparse Attention with Hierarchical Memory",
+      "url": "https://lmsys.org/blog/2026-04-10-sglang-hisparse/",
+      "image": "https://lmsys.org/images/blog/hisparse/hisparse_overview.png",
+      "date": "April 10, 2026"
+    },
     {
       "slug": "2026-03-25-gtc2026",
       "title": "Highlights of SGLang at NVIDIA GTC 2026",
@@ -47,13 +54,6 @@
       "url": "https://lmsys.org/blog/2026-02-20-gb300-inferencex/",
       "image": "https://lmsys.org/images/blog/gb300_inferencex/img-1.png",
       "date": "February 20, 2026"
-    },
-    {
-      "slug": "2026-02-19-gb300-longctx",
-      "title": "Deploying DeepSeek on GB300 NVL72: Big Wins in Long-Context Inference",
-      "url": "https://lmsys.org/blog/2026-02-19-gb300-longctx/",
-      "image": "https://lmsys.org/images/blog/gb300_longctx/cover.png",
-      "date": "February 19, 2026"
     }
   ]
 }
